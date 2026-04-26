@@ -10,10 +10,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class GatewayEngineTest {
+class ExecutionChainTerminateTest {
 
     @Test
-    void shouldExecuteAllPhasesInOrderWithFilters() {
+    void shouldSkipMiddlePhasesButStillRunResponseWhenTerminated() {
         GatewayEngine engine = new GatewayEngine();
         List<Phase> visited = new ArrayList<>();
 
@@ -23,18 +23,10 @@ class GatewayEngineTest {
         });
         engine.registerFilter(Phase.ROUTE, (ctx, chain) -> {
             visited.add(Phase.ROUTE);
-            chain.filter(ctx);
+            ctx.terminate(403, "forbidden");
         });
         engine.registerFilter(Phase.PRE_FORWARD, (ctx, chain) -> {
             visited.add(Phase.PRE_FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.FORWARD, (ctx, chain) -> {
-            visited.add(Phase.FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.POST_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.POST_FORWARD);
             chain.filter(ctx);
         });
         engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
@@ -44,9 +36,6 @@ class GatewayEngineTest {
         assertThat(visited).containsExactly(
                 Phase.PRE_ROUTE,
                 Phase.ROUTE,
-                Phase.PRE_FORWARD,
-                Phase.FORWARD,
-                Phase.POST_FORWARD,
                 Phase.RESPONSE
         );
     }

@@ -1,7 +1,10 @@
 package io.homeey.traffic.core.engine;
 
+import io.homeey.traffic.common.Phase;
 import io.homeey.traffic.core.context.GatewayContext;
 import io.homeey.traffic.core.lifecycle.PhaseRegistry;
+import io.homeey.traffic.filter.core.GatewayFilter;
+import io.homeey.traffic.spi.extension.Activate;
 
 public class GatewayEngine {
 
@@ -16,6 +19,16 @@ public class GatewayEngine {
 
     public void execute(GatewayContext context) {
         executionChain.execute(context);
+    }
+
+    public GatewayEngine registerFilter(Phase phase, GatewayFilter filter) {
+        lifecycleManager.registerFilter(phase, filter);
+        return this;
+    }
+
+    public GatewayEngine registerFilter(Phase phase, GatewayFilter filter, Activate activate) {
+        lifecycleManager.registerFilter(phase, filter, activate);
+        return this;
     }
 
     public LifecycleManager lifecycleManager() {
