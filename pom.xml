@@ -12,6 +12,7 @@
     <modules>
         <module>gateway-common</module>
         <module>gateway-spi</module>
+        <module>gateway-filter</module>
         <module>gateway-core</module>
     </modules>
 

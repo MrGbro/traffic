@@ -10,43 +10,30 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class GatewayEngineTest {
+class ExecutionChainExceptionTest {
 
     @Test
-    void shouldExecuteAllPhasesInOrderWithFilters() {
+    void shouldEnterResponseWhenFilterThrowsException() {
         GatewayEngine engine = new GatewayEngine();
         List<Phase> visited = new ArrayList<>();
 
         engine.registerFilter(Phase.PRE_ROUTE, (ctx, chain) -> {
             visited.add(Phase.PRE_ROUTE);
-            chain.filter(ctx);
+            throw new IllegalStateException("boom");
         });
         engine.registerFilter(Phase.ROUTE, (ctx, chain) -> {
             visited.add(Phase.ROUTE);
             chain.filter(ctx);
         });
-        engine.registerFilter(Phase.PRE_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.PRE_FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.FORWARD, (ctx, chain) -> {
-            visited.add(Phase.FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.POST_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.POST_FORWARD);
-            chain.filter(ctx);
-        });
         engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
 
-        engine.execute(new GatewayContext("req-1"));
+        GatewayContext context = new GatewayContext("req-1");
+        engine.execute(context);
 
+        assertThat(context.hasError()).isTrue();
+        assertThat(context.isTerminated()).isTrue();
         assertThat(visited).containsExactly(
                 Phase.PRE_ROUTE,
-                Phase.ROUTE,
-                Phase.PRE_FORWARD,
-                Phase.FORWARD,
-                Phase.POST_FORWARD,
                 Phase.RESPONSE
         );
     }

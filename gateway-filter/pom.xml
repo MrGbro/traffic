@@ -10,17 +10,17 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>gateway-core</artifactId>
+    <artifactId>gateway-filter</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.homeey.traffic</groupId>
-            <artifactId>gateway-spi</artifactId>
+            <artifactId>gateway-common</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.homeey.traffic</groupId>
-            <artifactId>gateway-filter</artifactId>
+            <artifactId>gateway-spi</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
