@@ -5,6 +5,7 @@ import io.homeey.traffic.core.context.GatewayContext;
 import io.homeey.traffic.core.engine.GatewayEngine;
 import io.homeey.traffic.core.engine.route.RoutePhaseFilter;
 import io.homeey.traffic.routing.context.RoutingAttributes;
+import io.homeey.traffic.spi.context.ExchangeAttributes;
 import io.homeey.traffic.routing.locator.InMemoryRouteLocator;
 import io.homeey.traffic.routing.model.PredicateDefinition;
 import io.homeey.traffic.routing.model.RouteDefinition;
@@ -43,8 +44,8 @@ class RoutePhaseIntegrationTest {
         engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
 
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute("request.path", "/orders");
-        context.attribute("request.method", "GET");
+        context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
+        context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
 
         engine.execute(context);
 
@@ -84,8 +85,8 @@ class RoutePhaseIntegrationTest {
         engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
 
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute("request.path", "/users");
-        context.attribute("request.method", "GET");
+        context.attribute(ExchangeAttributes.REQUEST_PATH, "/users");
+        context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
 
         engine.execute(context);
 

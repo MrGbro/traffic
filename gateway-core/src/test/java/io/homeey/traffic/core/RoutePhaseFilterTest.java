@@ -4,6 +4,7 @@ import io.homeey.traffic.core.context.GatewayContext;
 import io.homeey.traffic.core.engine.route.RoutePhaseFilter;
 import io.homeey.traffic.filter.core.FilterChain;
 import io.homeey.traffic.routing.context.RoutingAttributes;
+import io.homeey.traffic.spi.context.ExchangeAttributes;
 import io.homeey.traffic.routing.locator.RouteLocator;
 import io.homeey.traffic.routing.model.PredicateDefinition;
 import io.homeey.traffic.routing.model.RouteDefinition;
@@ -30,8 +31,8 @@ class RoutePhaseFilterTest {
         RoutePhaseFilter filter = new RoutePhaseFilter(locator);
 
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute("request.path", "/orders");
-        context.attribute("request.method", "GET");
+        context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
+        context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
 
         AtomicBoolean continued = new AtomicBoolean(false);
         FilterChain chain = ctx -> continued.set(true);
@@ -54,8 +55,8 @@ class RoutePhaseFilterTest {
         RoutePhaseFilter filter = new RoutePhaseFilter(locator);
 
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute("request.path", "/missing");
-        context.attribute("request.method", "GET");
+        context.attribute(ExchangeAttributes.REQUEST_PATH, "/missing");
+        context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
 
         AtomicBoolean continued = new AtomicBoolean(false);
         FilterChain chain = ctx -> continued.set(true);
@@ -74,7 +75,7 @@ class RoutePhaseFilterTest {
         RoutePhaseFilter filter = new RoutePhaseFilter(locator);
 
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute("request.path", "/orders");
+        context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
 
         filter.filter(context, ctx -> {
         });
