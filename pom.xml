@@ -13,6 +13,7 @@
         <module>gateway-common</module>
         <module>gateway-spi</module>
         <module>gateway-filter</module>
+        <module>gateway-routing</module>
         <module>gateway-core</module>
     </modules>
 

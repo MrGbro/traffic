@@ -10,24 +10,15 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>gateway-core</artifactId>
+    <artifactId>gateway-routing</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.homeey.traffic</groupId>
-            <artifactId>gateway-spi</artifactId>
+            <artifactId>gateway-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>io.homeey.traffic</groupId>
-            <artifactId>gateway-filter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.homeey.traffic</groupId>
-            <artifactId>gateway-routing</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -39,5 +30,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>
