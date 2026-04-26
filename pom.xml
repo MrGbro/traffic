@@ -15,6 +15,7 @@
         <module>gateway-filter</module>
         <module>gateway-routing</module>
         <module>gateway-forward</module>
+        <module>gateway-cluster</module>
         <module>gateway-core</module>
     </modules>
 
