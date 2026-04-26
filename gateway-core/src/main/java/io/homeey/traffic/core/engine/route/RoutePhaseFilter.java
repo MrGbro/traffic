@@ -7,13 +7,11 @@ import io.homeey.traffic.routing.context.RoutingAttributes;
 import io.homeey.traffic.routing.locator.RouteLocator;
 import io.homeey.traffic.routing.model.RouteDefinition;
 import io.homeey.traffic.routing.request.RouteRequest;
+import io.homeey.traffic.spi.context.ExchangeAttributes;
 
 import java.util.Optional;
 
 public class RoutePhaseFilter implements RouteFilter {
-
-    private static final String REQUEST_PATH_ATTR = "request.path";
-    private static final String REQUEST_METHOD_ATTR = "request.method";
 
     private final RouteLocator routeLocator;
 
@@ -23,8 +21,8 @@ public class RoutePhaseFilter implements RouteFilter {
 
     @Override
     public void filter(FilterContext context, FilterChain chain) throws Exception {
-        String path = context.attribute(REQUEST_PATH_ATTR);
-        String method = context.attribute(REQUEST_METHOD_ATTR);
+        String path = context.attribute(ExchangeAttributes.REQUEST_PATH);
+        String method = context.attribute(ExchangeAttributes.REQUEST_METHOD);
 
         Optional<RouteDefinition> route = routeLocator.locate(new RouteRequest(path, method));
         if (route.isEmpty()) {
