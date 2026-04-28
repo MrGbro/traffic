@@ -30,3 +30,12 @@ Full design doc: `docs/arhctechture.md` (sic).
 
 ## Critical
 使用中文做项目或者方案的沟通
+
+## workflow
+此流程徐强制执行：
+```text
+1.需求提出
+2.使用superpowers的 brainstorming 进行需求分析和方案设计
+3.使用superpowers的 writing-plans 进行实现计划的拆分
+4.使用superpowers的 executing-plans 进行计划执行
+```

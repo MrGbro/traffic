@@ -1,0 +1,2 @@
+first=io.homeey.traffic.spi.loader.NamedFirstImpl
+second=io.homeey.traffic.spi.loader.NamedSecondImpl

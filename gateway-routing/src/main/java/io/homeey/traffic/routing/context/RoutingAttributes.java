@@ -5,6 +5,7 @@ public final class RoutingAttributes {
     public static final String ROUTE_MATCHED = "route.matched";
     public static final String ROUTE_ID = "route.id";
     public static final String ROUTE_TARGET = "route.target";
+    public static final String ROUTE_RESOLVED_TARGET = "route.resolvedTarget";
 
     private RoutingAttributes() {
     }

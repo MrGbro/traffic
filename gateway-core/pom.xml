@@ -30,6 +30,11 @@
         </dependency>
         <dependency>
             <groupId>io.homeey.traffic</groupId>
+            <artifactId>gateway-cluster</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.homeey.traffic</groupId>
             <artifactId>gateway-forward</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

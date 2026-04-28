@@ -6,13 +6,18 @@ import io.homeey.traffic.filter.core.FilterChain;
 import io.homeey.traffic.routing.context.RoutingAttributes;
 import io.homeey.traffic.spi.context.ExchangeAttributes;
 import io.homeey.traffic.spi.context.SpiResponseContext;
+import io.homeey.traffic.spi.contract.cluster.LoadBalancer;
+import io.homeey.traffic.spi.contract.cluster.ServiceDiscovery;
+import io.homeey.traffic.spi.contract.cluster.ServiceInstance;
 import io.homeey.traffic.spi.contract.forward.Forwarder;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,7 +33,7 @@ class ForwardPhaseFilterTest {
         );
         ForwardPhaseFilter filter = new ForwardPhaseFilter(forwarder);
 
-        GatewayContext context = baseContext();
+        GatewayContext context = baseContext("http://localhost:8081");
         AtomicBoolean continued = new AtomicBoolean(false);
         FilterChain chain = ctx -> continued.set(true);
 
@@ -44,6 +49,45 @@ class ForwardPhaseFilterTest {
         assertThat(headers).containsEntry("Content-Type", "text/plain");
         assertThat(new String(body, StandardCharsets.UTF_8)).isEqualTo("ok");
         assertThat(continued).isTrue();
+    }
+
+    @Test
+    void shouldResolveSvcTargetAndWriteResolvedTarget() throws Exception {
+        Forwarder forwarder = (target, request) -> {
+            assertThat(target).isEqualTo("http://127.0.0.1:8082");
+            return new SpiResponseContext(200, Map.of(), new byte[0]);
+        };
+        ServiceDiscovery discovery = serviceName -> List.of(
+                new ServiceInstance("orders", "127.0.0.1", 8082, Map.of())
+        );
+        LoadBalancer lb = (serviceName, instances) -> Optional.of(instances.get(0));
+        ForwardPhaseFilter filter = new ForwardPhaseFilter(forwarder, discovery, lb);
+
+        GatewayContext context = baseContext("svc://orders");
+
+        filter.filter(context, ctx -> {
+        });
+
+        String resolvedTarget = context.attribute(RoutingAttributes.ROUTE_RESOLVED_TARGET);
+        assertThat(context.isTerminated()).isFalse();
+        assertThat(resolvedTarget).isEqualTo("http://127.0.0.1:8082");
+    }
+
+    @Test
+    void shouldTerminate503WhenNoServiceInstance() throws Exception {
+        Forwarder forwarder = (target, request) -> new SpiResponseContext(200, Map.of(), new byte[0]);
+        ServiceDiscovery discovery = serviceName -> List.of();
+        LoadBalancer lb = (serviceName, instances) -> Optional.empty();
+        ForwardPhaseFilter filter = new ForwardPhaseFilter(forwarder, discovery, lb);
+
+        GatewayContext context = baseContext("svc://orders");
+
+        filter.filter(context, ctx -> {
+        });
+
+        assertThat(context.isTerminated()).isTrue();
+        assertThat(context.statusCode()).contains(503);
+        assertThat(context.terminateReason()).contains("Service Unavailable");
     }
 
     @Test
@@ -70,7 +114,7 @@ class ForwardPhaseFilterTest {
         };
         ForwardPhaseFilter filter = new ForwardPhaseFilter(forwarder);
 
-        GatewayContext context = baseContext();
+        GatewayContext context = baseContext("http://localhost:8081");
 
         filter.filter(context, ctx -> {
         });
@@ -87,7 +131,7 @@ class ForwardPhaseFilterTest {
         };
         ForwardPhaseFilter filter = new ForwardPhaseFilter(forwarder);
 
-        GatewayContext context = baseContext();
+        GatewayContext context = baseContext("http://localhost:8081");
 
         filter.filter(context, ctx -> {
         });
@@ -97,9 +141,9 @@ class ForwardPhaseFilterTest {
         assertThat(context.terminateReason()).contains("Bad Gateway");
     }
 
-    private GatewayContext baseContext() {
+    private GatewayContext baseContext(String routeTarget) {
         GatewayContext context = new GatewayContext("req-1");
-        context.attribute(RoutingAttributes.ROUTE_TARGET, "http://localhost:8081");
+        context.attribute(RoutingAttributes.ROUTE_TARGET, routeTarget);
         context.attribute(RoutingAttributes.ROUTE_ID, "r-orders");
         context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
         context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");

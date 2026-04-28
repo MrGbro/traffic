@@ -1,0 +1,1 @@
+roundRobin=io.homeey.traffic.cluster.loadbalance.RoundRobinLoadBalancer

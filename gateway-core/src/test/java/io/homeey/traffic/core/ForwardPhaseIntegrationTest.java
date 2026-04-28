@@ -1,6 +1,8 @@
 package io.homeey.traffic.core;
 
 import com.sun.net.httpserver.HttpServer;
+import io.homeey.traffic.cluster.discovery.InMemoryServiceDiscovery;
+import io.homeey.traffic.cluster.loadbalance.RoundRobinLoadBalancer;
 import io.homeey.traffic.common.Phase;
 import io.homeey.traffic.core.context.GatewayContext;
 import io.homeey.traffic.core.engine.GatewayEngine;
@@ -11,6 +13,7 @@ import io.homeey.traffic.routing.model.PredicateDefinition;
 import io.homeey.traffic.routing.model.RouteDefinition;
 import io.homeey.traffic.routing.locator.InMemoryRouteLocator;
 import io.homeey.traffic.spi.context.ExchangeAttributes;
+import io.homeey.traffic.spi.contract.cluster.ServiceInstance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,35 +28,97 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ForwardPhaseIntegrationTest {
 
-    private HttpServer backend;
+    private HttpServer backendA;
+    private HttpServer backendB;
 
     @AfterEach
     void tearDown() {
-        if (backend != null) {
-            backend.stop(0);
+        if (backendA != null) {
+            backendA.stop(0);
+        }
+        if (backendB != null) {
+            backendB.stop(0);
         }
     }
 
     @Test
-    void shouldRunRouteForwardResponseEndToEnd() throws Exception {
-        int port = randomPort();
-        backend = HttpServer.create(new InetSocketAddress(port), 0);
-        backend.createContext("/orders", exchange -> {
-            byte[] response = "forward-ok".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("X-Backend", "phase4");
+    void shouldRunRouteClusterForwardResponseEndToEnd() throws Exception {
+        int portA = randomPort();
+        int portB = randomPort();
+
+        backendA = HttpServer.create(new InetSocketAddress(portA), 0);
+        backendA.createContext("/orders", exchange -> {
+            byte[] response = "from-a".getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length);
             exchange.getResponseBody().write(response);
             exchange.close();
         });
-        backend.start();
+        backendA.start();
 
-        GatewayEngine engine = new GatewayEngine();
+        backendB = HttpServer.create(new InetSocketAddress(portB), 0);
+        backendB.createContext("/orders", exchange -> {
+            byte[] response = "from-b".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        backendB.start();
+
+        var discovery = new InMemoryServiceDiscovery(Map.of(
+                "orders", List.of(
+                        new ServiceInstance("orders", "127.0.0.1", portA, Map.of()),
+                        new ServiceInstance("orders", "127.0.0.1", portB, Map.of())
+                )
+        ));
+        var lb = new RoundRobinLoadBalancer();
+
+        GatewayEngine engine = buildEngine("svc://orders", discovery, lb);
+
+        GatewayContext ctx1 = baseRequest("req-1");
+        engine.execute(ctx1);
+        byte[] body1 = ctx1.attribute(ExchangeAttributes.RESPONSE_BODY);
+
+        GatewayContext ctx2 = baseRequest("req-2");
+        engine.execute(ctx2);
+        byte[] body2 = ctx2.attribute(ExchangeAttributes.RESPONSE_BODY);
+
+        assertThat(ctx1.isTerminated()).isFalse();
+        assertThat(ctx2.isTerminated()).isFalse();
+        assertThat(new String(body1, StandardCharsets.UTF_8)).isEqualTo("from-a");
+        assertThat(new String(body2, StandardCharsets.UTF_8)).isEqualTo("from-b");
+    }
+
+    @Test
+    void shouldTerminate503AndOnlyEnterResponseWhenNoServiceInstance() {
+        var discovery = new InMemoryServiceDiscovery(Map.of("orders", List.of()));
+        var lb = new RoundRobinLoadBalancer();
+
+        GatewayEngine engine = buildEngine("svc://orders", discovery, lb);
+
         List<Phase> visited = new ArrayList<>();
+        engine.registerFilter(Phase.POST_FORWARD, (ctx, chain) -> {
+            visited.add(Phase.POST_FORWARD);
+            chain.filter(ctx);
+        });
+        engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
+
+        GatewayContext context = baseRequest("req-3");
+        engine.execute(context);
+
+        assertThat(context.isTerminated()).isTrue();
+        assertThat(context.statusCode()).contains(503);
+        assertThat(visited).containsExactly(Phase.RESPONSE);
+    }
+
+    private GatewayEngine buildEngine(String routeTarget,
+                                      InMemoryServiceDiscovery discovery,
+                                      RoundRobinLoadBalancer lb) {
+        GatewayEngine engine = new GatewayEngine();
 
         InMemoryRouteLocator locator = new InMemoryRouteLocator(List.of(
                 new RouteDefinition(
                         "r-orders",
-                        "http://127.0.0.1:" + port,
+                        routeTarget,
                         10,
                         List.of(
                                 new PredicateDefinition("Path", Map.of("value", "/orders")),
@@ -63,81 +128,20 @@ class ForwardPhaseIntegrationTest {
         ));
 
         engine.registerFilter(Phase.ROUTE, new RoutePhaseFilter(locator));
-        engine.registerFilter(Phase.PRE_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.PRE_FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.FORWARD, (ctx, chain) -> {
-            visited.add(Phase.FORWARD);
-            new ForwardPhaseFilter(new HttpForwarder()).filter(ctx, chain);
-        });
-        engine.registerFilter(Phase.POST_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.POST_FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
+        engine.registerFilter(Phase.FORWARD, (ctx, chain) ->
+                new ForwardPhaseFilter(new HttpForwarder(), discovery, lb).filter(ctx, chain));
+        engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> chain.filter(ctx));
 
-        GatewayContext context = new GatewayContext("req-1");
+        return engine;
+    }
+
+    private GatewayContext baseRequest(String requestId) {
+        GatewayContext context = new GatewayContext(requestId);
         context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
         context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
         context.attribute(ExchangeAttributes.REQUEST_HEADERS, Map.of("Accept", "*/*"));
         context.attribute(ExchangeAttributes.REQUEST_BODY, new byte[0]);
-
-        engine.execute(context);
-
-        Integer status = context.attribute(ExchangeAttributes.RESPONSE_STATUS);
-        byte[] body = context.attribute(ExchangeAttributes.RESPONSE_BODY);
-
-        assertThat(context.isTerminated()).isFalse();
-        assertThat(status).isEqualTo(200);
-        assertThat(new String(body, StandardCharsets.UTF_8)).isEqualTo("forward-ok");
-        assertThat(visited).containsExactly(
-                Phase.PRE_FORWARD,
-                Phase.FORWARD,
-                Phase.POST_FORWARD,
-                Phase.RESPONSE
-        );
-    }
-
-    @Test
-    void shouldTerminate502AndOnlyEnterResponseWhenForwardFails() {
-        GatewayEngine engine = new GatewayEngine();
-        List<Phase> visited = new ArrayList<>();
-
-        InMemoryRouteLocator locator = new InMemoryRouteLocator(List.of(
-                new RouteDefinition(
-                        "r-orders",
-                        "http://127.0.0.1:9",
-                        10,
-                        List.of(
-                                new PredicateDefinition("Path", Map.of("value", "/orders")),
-                                new PredicateDefinition("Method", Map.of("value", "GET"))
-                        )
-                )
-        ));
-
-        engine.registerFilter(Phase.ROUTE, new RoutePhaseFilter(locator));
-        engine.registerFilter(Phase.FORWARD, (ctx, chain) -> {
-            visited.add(Phase.FORWARD);
-            new ForwardPhaseFilter(new HttpForwarder()).filter(ctx, chain);
-        });
-        engine.registerFilter(Phase.POST_FORWARD, (ctx, chain) -> {
-            visited.add(Phase.POST_FORWARD);
-            chain.filter(ctx);
-        });
-        engine.registerFilter(Phase.RESPONSE, (ctx, chain) -> visited.add(Phase.RESPONSE));
-
-        GatewayContext context = new GatewayContext("req-2");
-        context.attribute(ExchangeAttributes.REQUEST_PATH, "/orders");
-        context.attribute(ExchangeAttributes.REQUEST_METHOD, "GET");
-        context.attribute(ExchangeAttributes.REQUEST_HEADERS, Map.of());
-        context.attribute(ExchangeAttributes.REQUEST_BODY, new byte[0]);
-
-        engine.execute(context);
-
-        assertThat(context.isTerminated()).isTrue();
-        assertThat(context.statusCode()).contains(502);
-        assertThat(visited).containsExactly(Phase.FORWARD, Phase.RESPONSE);
+        return context;
     }
 
     private int randomPort() throws Exception {
