@@ -5,7 +5,7 @@ import io.homeey.traffic.spi.extension.SPI;
 import java.util.List;
 import java.util.Optional;
 
-@SPI
+@SPI("roundRobin")
 public interface LoadBalancer {
 
     Optional<ServiceInstance> choose(String serviceName, List<ServiceInstance> instances);

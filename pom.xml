@@ -16,6 +16,8 @@
         <module>gateway-routing</module>
         <module>gateway-forward</module>
         <module>gateway-cluster</module>
+        <module>gateway-transport</module>
+        <module>gateway-runtime</module>
         <module>gateway-core</module>
     </modules>
 

@@ -4,7 +4,7 @@ import io.homeey.traffic.spi.extension.SPI;
 
 import java.util.List;
 
-@SPI
+@SPI("inMemory")
 public interface ServiceDiscovery {
 
     List<ServiceInstance> getInstances(String serviceName);

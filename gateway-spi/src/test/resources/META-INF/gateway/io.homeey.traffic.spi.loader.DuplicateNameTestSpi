@@ -1,0 +1,2 @@
+dup=io.homeey.traffic.spi.loader.DuplicateOneImpl
+dup=io.homeey.traffic.spi.loader.DuplicateTwoImpl

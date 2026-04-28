@@ -1,0 +1,1 @@
+builtin=io.homeey.traffic.runtime.extension.BuiltinFallbackImpl

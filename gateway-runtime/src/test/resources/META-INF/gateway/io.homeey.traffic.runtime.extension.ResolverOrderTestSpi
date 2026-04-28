@@ -1,0 +1,2 @@
+spiDefault=io.homeey.traffic.runtime.extension.ResolverOrderSpiDefaultImpl
+configured=io.homeey.traffic.runtime.extension.ResolverOrderConfiguredImpl
